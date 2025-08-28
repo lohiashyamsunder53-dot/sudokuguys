@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Sudoku with Leaderboard & Timer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --cell: 44px; }
+
+    body {
+      font-family: Arial, sans-serif;
+      display: grid;
+      place-items: center;
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: #eee; }
+
+    .sudoku {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 6px;
+      border: 2px solid #000;
+      padding: 6px;
+      background: #fff;
+    }
+
+    .box {
+      display: grid;
+      grid-template-columns: repeat(3, var(--cell));
+      grid-template-rows: repeat(3, var(--cell));
+      border: 2px solid #000;
+      background: #fff;
+    }
+
+    .cell input {
+      width: var(--cell);
+      height: var(--cell);
+      border: 1px solid #bbb;
+      text-align: center;
+      font-size: 1.15rem;
+      outline: none;
+    }
+    .cell input:focus { box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); }
+
+    .cell input.given {
+      background: #f0f0f0;
+      font-weight: 700;
+      color: #000;
+    }
+
+    #message {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    .correct { color: green; }
+    .wrong { color: red; }
+
+    #leaderboard {
+      margin-top: 20px;
+      border: 2px solid #000;
+      padding: 10px;
+      width: 250px;
+      background: #fafafa;
+    }
+    #leaderboard h3 {
+      text-align: center;
+      margin: 0 0 8px;
+    }
+    #leaderboard ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    #timer {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-top: 10px;
+      color: blue;
+    }
+  </style>
+</head>
+<body>
+  <h2>Sudoku with Leaderboard & Timer</h2>
+
+  <div class="toolbar">
+    <input type="text" id="playerName" placeholder="Enter your name" />
+    <button id="clear">Clear</button>
+    <button id="fillSample">Load Puzzle</button>
+    <button id="check">Check Solution</button>
+  </div>
+
+  <div id="timer">⏱ Time: 0:00</div>
+  <div class="sudoku" id="sudoku"></div>
+  <div id="message"></div>
+
+  <div id="leaderboard">
+    <h3>🏆 Leaderboard</h3>
+    <ol id="scores"></ol>
+  </div>
+
+  <script>
+    const samplePuzzle = [
+      [5,3,0, 0,7,0, 0,0,0],
+      [6,0,0, 1,9,5, 0,0,0],
+      [0,9,8, 0,0,0, 0,6,0],
+
+      [8,0,0, 0,6,0, 0,0,3],
+      [4,0,0, 8,0,3, 0,0,1],
+      [7,0,0, 0,2,0, 0,0,6],
+
+      [0,6,0, 0,0,0, 2,8,0],
+      [0,0,0, 4,1,9, 0,0,5],
+      [0,0,0, 0,8,0, 0,7,9]
+    ];
+
+    const solution = [
+      [5,3,4, 6,7,8, 9,1,2],
+      [6,7,2, 1,9,5, 3,4,8],
+      [1,9,8, 3,4,2, 5,6,7],
+
+      [8,5,9, 7,6,1, 4,2,3],
+      [4,2,6, 8,5,3, 7,9,1],
+      [7,1,3, 9,2,4, 8,5,6],
+
+      [9,6,1, 5,3,7, 2,8,4],
+      [2,8,7, 4,1,9, 6,3,5],
+      [3,4,5, 2,8,6, 1,7,9]
+    ];
+
+    const sudoku = document.getElementById("sudoku");
+    let cells = [];
+    let startTime = 0;
+    let timerInterval = null;
+
+    function buildGrid() {
+      sudoku.innerHTML = "";
+      cells = [];
+      for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+          const box = document.createElement("div");
+          box.className = "box";
+          for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 3; c++) {
+              const globalRow = br*3 + r;
+              const globalCol = bc*3 + c;
+              const cell = document.createElement("div");
+              cell.className = "cell";
+              const input = document.createElement("input");
+              input.type = "text";
+              input.maxLength = 1;
+              cell.appendChild(input);
+              cells.push({input, row: globalRow, col: globalCol});
+              box.appendChild(cell);
+            }
+          }
+          sudoku.appendChild(box);
+        }
+      }
+    }
+    buildGrid();
+
+    function loadPuzzle(puzzle) {
+      cells.forEach(({input,row,col}) => {
+        input.value = "";
+        input.classList.remove("given");
+        if (puzzle[row][col] !== 0) {
+          input.value = puzzle[row][col];
+          input.classList.add("given");
+          input.disabled = true;
+        } else {
+          input.disabled = false;
+        }
+      });
+      document.getElementById("message").textContent = "";
+      startTimer();
+    }
+
+    function clearGrid() {
+      cells.forEach(({input}) => {
+        if (!input.classList.contains("given")) {
+          input.value = "";
+        }
+      });
+    }
+
+    function checkSolution() {
+      let correct = true;
+      cells.forEach(({input,row,col}) => {
+        if (parseInt(input.value) !== solution[row][col]) {
+          correct = false;
+        }
+      });
+      const msg = document.getElementById("message");
+      if (correct) {
+        msg.textContent = "✅ Correct Solution!";
+        msg.className = "correct";
+        stopTimer();
+        const player = document.getElementById("playerName").value || "Anonymous";
+        const timeTaken = Math.floor((Date.now() - startTime)/1000);
+        saveScore(player, timeTaken);
+        showScores();
+      } else {
+        msg.textContent = "❌ Incorrect, try again!";
+        msg.className = "wrong";
+      }
+    }
+
+    // Timer
+    function startTimer() {
+      stopTimer(); // reset if running
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 1000);
+      updateTimer();
+    }
+
+    function stopTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      const mins = Math.floor(elapsed/60);
+      const secs = elapsed % 60;
+      document.getElementById("timer").textContent = `⏱ Time: ${mins}:${secs.toString().padStart(2,"0")}`;
+    }
+
+    // Leaderboard with localStorage
+    function saveScore(name, time) {
+      let scores = JSON.parse(localStorage.getItem("sudokuScores") || "[]");
+      scores.push({name, time});
+      scores.sort((a,b) => a.time - b.time); // fastest first
+      scores = scores.slice(0,5); // keep top 5
+      localStorage.setItem("sudokuScores", JSON.stringify(scores));
+    }
+
+    function showScores() {
+      const scores = JSON.parse(localStorage.getItem("sudokuScores") || "[]");
+      const list = document.getElementById("scores");
+      list.innerHTML = "";
+      scores.forEach(s => {
+        const li = document.createElement("li");
+        li.textContent = `${s.name} - ${s.time}s`;
+        list.appendChild(li);
+      });
+    }
+
+    // Buttons
+    document.getElementById("fillSample").addEventListener("click", () => loadPuzzle(samplePuzzle));
+    document.getElementById("clear").addEventListener("click", clearGrid);
+    document.getElementById("check").addEventListener("click", checkSolution);
+
+    showScores();
+  </script>
+</body>
+</html>
