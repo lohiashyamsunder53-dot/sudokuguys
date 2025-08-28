@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>sudoku website</title>
+</head>
+<body bgcolor="black" text="white">
+<h1 style="text-color:yellow;">WELOCOME TO MY WEBSITE</h1>
+<a href="file:///C:/Users/Nikhil/Desktop/sudoku.html">
+<button>sudoku1</button></a>
+<a href="file:///C:/Users/Nikhil/Desktop/6by6sudoku.html">
+<button>sudoku2</button></a>
+</body>
+</html>
